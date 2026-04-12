@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IRL Renammer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="header-label">In Real Life Studio</div>
+        <h1>RENAMMER</h1>
+        <div class="subtitle">v 0.1.0</div>
+    </header>
+
+    <main>
+        <!-- ── Parcourir ── -->
+        <section class="panel" id="browser-panel">
+            <div class="panel-label">Parcourir</div>
+            <div class="browser-top">
+                <div id="breadcrumb" class="breadcrumb">
+                    <span class="breadcrumb-item current">Aucun dossier</span>
+                </div>
+                <button id="btn-browse" class="btn-select-folder">Parcourir</button>
+            </div>
+            <div id="folder-list" class="folder-list" style="display:none"></div>
+            <div class="current-folder-info" style="display:none" id="folder-info">
+                <span id="file-count" class="file-count"></span>
+                <span id="selected-path" class="file-count" style="color:var(--cream)"></span>
+            </div>
+        </section>
+
+        <!-- ── Règle de renommage ── -->
+        <section class="panel rule-panel">
+            <div class="panel-label">Renommage</div>
+            <div class="tabs" id="mode-tabs">
+                <button class="tab active" data-mode="search_replace">Rechercher / Remplacer</button>
+                <button class="tab" data-mode="regex">Regex</button>
+                <button class="tab" data-mode="prefix_suffix">Prefixe / Suffixe</button>
+                <button class="tab" data-mode="numbering">Numerotation</button>
+                <button class="tab" data-mode="case">Casse</button>
+                <button class="tab" data-mode="repad">Re-padding</button>
+            </div>
+
+            <div class="rule-form" id="form-search_replace">
+                <div class="info-box">
+                    Recherche un texte dans chaque nom de fichier et le remplace.<br>
+                    <strong>Exemple :</strong> "IMG" &rarr; "Photo" renomme <strong>IMG_001.jpg</strong> en <strong>Photo_001.jpg</strong>
+                </div>
+                <div class="field">
+                    <label>Rechercher</label>
+                    <input type="text" id="sr-search" placeholder="texte a trouver">
+                </div>
+                <div class="field">
+                    <label>Remplacer par</label>
+                    <input type="text" id="sr-replace" placeholder="nouveau texte">
+                </div>
+            </div>
+
+            <div class="rule-form hidden" id="form-regex">
+                <div class="info-box">
+                    Renommage par expression reguliere avec groupes de capture.<br>
+                    <strong>Exemple :</strong> pattern <strong>(\w+)-(\d+)</strong> + remplacement <strong>$2_$1</strong> transforme <strong>shot-042</strong> en <strong>042_shot</strong>
+                </div>
+                <div class="field">
+                    <label>Pattern (regex)</label>
+                    <input type="text" id="re-pattern" placeholder="(\w+)-(\d+)">
+                </div>
+                <div class="field">
+                    <label>Remplacer par</label>
+                    <input type="text" id="re-replace" placeholder="$2_$1">
+                </div>
+            </div>
+
+            <div class="rule-form hidden" id="form-prefix_suffix">
+                <div class="info-box">
+                    Ajoute du texte au debut et/ou a la fin de chaque nom de fichier (avant l'extension).<br>
+                    <strong>Exemple :</strong> prefixe <strong>FINAL_</strong> renomme <strong>comp.exr</strong> en <strong>FINAL_comp.exr</strong>
+                </div>
+                <div class="field">
+                    <label>Prefixe</label>
+                    <input type="text" id="ps-prefix" placeholder="prefix_">
+                </div>
+                <div class="field">
+                    <label>Suffixe</label>
+                    <input type="text" id="ps-suffix" placeholder="_suffix">
+                </div>
+            </div>
+
+            <div class="rule-form hidden" id="form-numbering">
+                <div class="info-box">
+                    Ajoute un numero sequentiel a chaque fichier. Configurez le debut, le pas, le nombre de chiffres (padding) et la position.<br>
+                    <strong>Exemple :</strong> debut 1, padding 3, prefixe &rarr; <strong>001_fichier.jpg</strong>, <strong>002_fichier.jpg</strong>, ...
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label>Debut</label>
+                        <input type="number" id="num-start" value="1" min="0">
+                    </div>
+                    <div class="field">
+                        <label>Pas</label>
+                        <input type="number" id="num-step" value="1" min="1">
+                    </div>
+                    <div class="field">
+                        <label>Padding</label>
+                        <input type="number" id="num-padding" value="3" min="1" max="10">
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label>Position</label>
+                        <select id="num-position">
+                            <option value="prefix">Prefixe</option>
+                            <option value="suffix">Suffixe</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Separateur</label>
+                        <input type="text" id="num-separator" value="_" maxlength="5">
+                    </div>
+                </div>
+            </div>
+
+            <div class="rule-form hidden" id="form-case">
+                <div class="info-box">
+                    Change la casse de chaque nom de fichier. Detecte automatiquement les mots (espaces, underscores, tirets, camelCase).<br>
+                    <strong>Exemple :</strong> snake_case transforme <strong>Mon Fichier</strong> en <strong>mon_fichier</strong>
+                </div>
+                <div class="field">
+                    <label>Type de casse</label>
+                    <select id="case-type">
+                        <option value="upper">MAJUSCULES</option>
+                        <option value="lower">minuscules</option>
+                        <option value="title">Title Case</option>
+                        <option value="camel">camelCase</option>
+                        <option value="snake">snake_case</option>
+                        <option value="kebab">kebab-case</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="rule-form hidden" id="form-repad">
+                <div class="info-box">
+                    Uniformise le padding des nombres dans les noms de fichiers. Ideal pour les sequences d'images dont la numerotation passe de 4 a 5 chiffres.<br>
+                    <strong>Exemple :</strong> <strong>render.0001.exr</strong> &rarr; <strong>render.00001.exr</strong> (auto-detecte le padding necessaire)
+                </div>
+                <div class="field">
+                    <label>Nombre de chiffres (0 = auto)</label>
+                    <input type="number" id="repad-padding" value="0" min="0" max="10">
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Preview ── -->
+        <section class="panel preview-panel">
+            <div class="preview-header">
+                <h2>Previsualisation</h2>
+                <span id="changes-count" class="badge">0 modifications</span>
+            </div>
+            <div id="preview-list" class="preview-list">
+                <p style="padding:12px;color:var(--dim)">Selectionnez un dossier pour commencer</p>
+            </div>
+        </section>
+
+        <!-- ── Actions ── -->
+        <section class="actions">
+            <button id="btn-rename" class="btn-primary" disabled>Appliquer</button>
+            <button id="btn-undo" class="btn-secondary" disabled>Annuler</button>
+        </section>
+
+        <div id="toast" class="toast hidden"></div>
+    </main>
+
+    <script src="app.js?v=7"></script>
+</body>
+</html>
