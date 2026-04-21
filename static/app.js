@@ -11,7 +11,6 @@ let debounceTimer = null;
 //  Init
 // ══════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-    // Check browser support
     if (!('showDirectoryPicker' in window)) {
         $('#folder-list').innerHTML = `<p style="padding:16px;color:var(--red)">
             Ce navigateur ne supporte pas l'API File System Access.<br>
@@ -23,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     $('#btn-browse').addEventListener('click', pickDirectory);
     $('#btn-rename').addEventListener('click', executeRename);
     $('#btn-undo').addEventListener('click', undoLast);
+    $('#progress-close').addEventListener('click', progressClose);
 
     $$('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -65,7 +65,6 @@ async function loadEntries() {
         currentEntries.push({ name, kind: handle.kind, handle });
     }
 
-    // Sort: dirs first, then alpha
     currentEntries.sort((a, b) => {
         if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1;
         return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
@@ -309,7 +308,55 @@ function refreshPreview() {
 }
 
 // ══════════════════════════════════════════
-//  Execute Rename (via File System Access)
+//  Progress modal
+// ══════════════════════════════════════════
+function progressOpen(total) {
+    $('#progress-title').textContent = 'Renommage en cours';
+    $('#progress-file').textContent = 'Preparation...';
+    $('#progress-count').textContent = `0 / ${total}`;
+    $('#progress-percent').textContent = '0%';
+    $('#progress-bar-fill').style.width = '0%';
+    $('#progress-bar-fill').className = 'progress-bar-fill';
+    $('#progress-result').classList.add('hidden');
+    $('#progress-result').className = 'progress-result hidden';
+    $('#progress-close').classList.add('hidden');
+    $('#progress-modal').classList.remove('hidden');
+}
+
+function progressUpdate(done, total, currentFile) {
+    const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+    $('#progress-bar-fill').style.width = pct + '%';
+    $('#progress-count').textContent = `${done} / ${total}`;
+    $('#progress-percent').textContent = pct + '%';
+    if (currentFile) $('#progress-file').textContent = currentFile;
+}
+
+function progressFinish(renamed, total, errors) {
+    const fill = $('#progress-bar-fill');
+    const result = $('#progress-result');
+    const hasErrors = errors.length > 0;
+
+    if (hasErrors) {
+        $('#progress-title').textContent = 'Termine avec des erreurs';
+        fill.classList.add('error');
+        result.className = 'progress-result error';
+        result.innerHTML = `${renamed} renomme(s), ${errors.length} erreur(s)<br><span style="color:var(--muted);font-size:11px">Voir la console pour le detail</span>`;
+    } else {
+        $('#progress-title').textContent = 'Renommage termine';
+        $('#progress-file').textContent = '\u2713 Tous les fichiers ont ete renommes';
+        fill.classList.add('success');
+        result.className = 'progress-result success';
+        result.textContent = `\u2713 ${renamed} fichier(s) renomme(s) avec succes`;
+    }
+    $('#progress-close').classList.remove('hidden');
+}
+
+function progressClose() {
+    $('#progress-modal').classList.add('hidden');
+}
+
+// ══════════════════════════════════════════
+//  Execute Rename — native handle.move(), metadata-only
 // ══════════════════════════════════════════
 async function executeRename() {
     const filenames = currentEntries.filter(e => e.kind === 'file').map(e => e.name);
@@ -318,32 +365,32 @@ async function executeRename() {
 
     if (previews.length === 0) return;
 
+    const entryByName = new Map(currentEntries.map(e => [e.name, e]));
+    const total = previews.length;
+
+    progressOpen(total);
+
     let renamed = 0;
     let errors = [];
     let ops = [];
 
-    for (const p of previews) {
+    for (let i = 0; i < previews.length; i++) {
+        const p = previews[i];
+        progressUpdate(i, total, p.original);
+        await new Promise(r => requestAnimationFrame(r));
+
         try {
-            // Check target doesn't exist
             try {
                 await dirHandle.getFileHandle(p.renamed);
                 errors.push(`${p.original} : "${p.renamed}" existe deja`);
                 continue;
             } catch { /* good, target doesn't exist */ }
 
-            // Read source
-            const srcHandle = await dirHandle.getFileHandle(p.original);
-            const file = await srcHandle.getFile();
-            const data = await file.arrayBuffer();
-
-            // Write to new name
-            const destHandle = await dirHandle.getFileHandle(p.renamed, { create: true });
-            const writable = await destHandle.createWritable();
-            await writable.write(data);
-            await writable.close();
-
-            // Remove old file
-            await dirHandle.removeEntry(p.original);
+            const entry = entryByName.get(p.original);
+            if (!entry || !entry.handle.move) {
+                throw new Error('handle.move() non disponible — mets a jour Chrome/Edge (v111+)');
+            }
+            await entry.handle.move(p.renamed);
 
             renamed++;
             ops.push({ oldName: p.original, newName: p.renamed });
@@ -352,17 +399,16 @@ async function executeRename() {
         }
     }
 
+    progressUpdate(total, total, '');
+
     if (ops.length > 0) {
         undoStack.push({ ops });
         $('#btn-undo').disabled = false;
     }
 
-    if (errors.length > 0) {
-        toast(`${renamed} renomme(s), ${errors.length} erreur(s)`, 'error');
-    } else {
-        toast(`${renamed} fichier(s) renomme(s)`, 'success');
-    }
+    if (errors.length > 0) console.warn('Erreurs:', errors);
 
+    progressFinish(renamed, total, errors);
     await loadEntries();
 }
 
@@ -376,16 +422,9 @@ async function undoLast() {
 
     for (const op of [...record.ops].reverse()) {
         try {
-            const srcHandle = await dirHandle.getFileHandle(op.newName);
-            const file = await srcHandle.getFile();
-            const data = await file.arrayBuffer();
-
-            const destHandle = await dirHandle.getFileHandle(op.oldName, { create: true });
-            const writable = await destHandle.createWritable();
-            await writable.write(data);
-            await writable.close();
-
-            await dirHandle.removeEntry(op.newName);
+            const handle = await dirHandle.getFileHandle(op.newName);
+            if (!handle.move) throw new Error('handle.move() non disponible');
+            await handle.move(op.oldName);
             restored++;
         } catch (e) {
             toast(`Erreur undo ${op.newName}: ${e.message}`, 'error');

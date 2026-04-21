@@ -169,8 +169,25 @@
         </section>
 
         <div id="toast" class="toast hidden"></div>
+
+        <!-- ── Progress modal ── -->
+        <div id="progress-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="progress-title">
+            <div class="modal">
+                <div class="panel-label" id="progress-title">Renommage en cours</div>
+                <div class="progress-file" id="progress-file">Preparation...</div>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" id="progress-bar-fill" style="width:0%"></div>
+                </div>
+                <div class="progress-meta">
+                    <span id="progress-count">0 / 0</span>
+                    <span id="progress-percent">0%</span>
+                </div>
+                <div class="progress-result hidden" id="progress-result"></div>
+                <button id="progress-close" class="btn-primary hidden">Fermer</button>
+            </div>
+        </div>
     </main>
 
-    <script src="app.js?v=7"></script>
+    <script src="app.js?v=10"></script>
 </body>
 </html>
