@@ -130,7 +130,7 @@ pub fn apply_rule(filenames: &[String], rule: &RenameRule) -> Result<Vec<RenameP
             RenameRule::ChangeCase { case_type } => apply_case(&stem, case_type),
             RenameRule::Repad { .. } => repad_numbers(&stem, repad_width),
             RenameRule::Segments { separator, keep, join, append } => {
-                apply_segments(&stem, separator, keep, join, append)
+                apply_segments(&stem, separator, keep, join, append, i)
             }
         };
 
@@ -182,7 +182,7 @@ fn repad_numbers(stem: &str, width: usize) -> String {
     result
 }
 
-fn apply_segments(stem: &str, separator: &str, keep: &str, join: &str, append: &str) -> String {
+fn apply_segments(stem: &str, separator: &str, keep: &str, join: &str, append: &str, index: usize) -> String {
     let sep = if separator.is_empty() { "_" } else { separator };
     let segments: Vec<&str> = stem.split(sep).collect();
     let n = segments.len();
@@ -196,8 +196,28 @@ fn apply_segments(stem: &str, separator: &str, keep: &str, join: &str, append: &
         .collect();
 
     let mut result = kept.join(join_str);
-    result.push_str(append);
+    result.push_str(&expand_counter(append, index));
     result
+}
+
+// Replace runs of '#' in `s` with a zero-padded counter (1-indexed from `index`).
+// Ex: "_v##" at index=0 -> "_v01"; "_v##" at index=11 -> "_v12".
+fn expand_counter(s: &str, index: usize) -> String {
+    let mut out = String::with_capacity(s.len() + 4);
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '#' {
+            let mut width = 1;
+            while let Some('#') = chars.peek() {
+                chars.next();
+                width += 1;
+            }
+            out.push_str(&format!("{:0>width$}", index + 1, width = width));
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 // Parse "1-3", "1,3,5", "2-", "1-2,4" — 1-indexed. Returns 0-indexed positions.

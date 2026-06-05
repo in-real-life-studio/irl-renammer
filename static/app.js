@@ -256,13 +256,17 @@ function parseKeepRange(spec, total) {
     return out;
 }
 
-function applySegments(stem, rule) {
+function applySegments(stem, rule, index) {
     const sep = rule.separator || '_';
     const segments = stem.split(sep);
     const indices = parseKeepRange(rule.keep, segments.length);
     const joinStr = rule.join || sep;
     const kept = indices.map(i => segments[i]).filter(s => s !== undefined);
-    return kept.join(joinStr) + (rule.append || '');
+    return kept.join(joinStr) + expandCounter(rule.append || '', index);
+}
+
+function expandCounter(s, index) {
+    return s.replace(/#+/g, run => String(index + 1).padStart(run.length, '0'));
 }
 
 function computePreviews(filenames, rule) {
@@ -302,7 +306,7 @@ function computePreviews(filenames, rule) {
                 newStem = repadNumbers(stem, repadWidth);
                 break;
             case 'segments':
-                newStem = applySegments(stem, rule);
+                newStem = applySegments(stem, rule, i);
                 break;
             default:
                 newStem = stem;
