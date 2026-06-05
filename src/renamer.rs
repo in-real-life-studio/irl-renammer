@@ -45,6 +45,10 @@ pub enum RenameRule {
         join: String,
         #[serde(default)]
         append: String,
+        #[serde(default)]
+        cycle: String,
+        #[serde(default = "default_group_size")]
+        group_size: usize,
     },
 }
 
@@ -53,6 +57,7 @@ fn default_step() -> usize { 1 }
 fn default_padding() -> usize { 3 }
 fn default_repad_padding() -> usize { 0 } // 0 = auto-detect
 fn default_segments_separator() -> String { "_".to_string() }
+fn default_group_size() -> usize { 1 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum NumberPosition {
@@ -129,8 +134,8 @@ pub fn apply_rule(filenames: &[String], rule: &RenameRule) -> Result<Vec<RenameP
             }
             RenameRule::ChangeCase { case_type } => apply_case(&stem, case_type),
             RenameRule::Repad { .. } => repad_numbers(&stem, repad_width),
-            RenameRule::Segments { separator, keep, join, append } => {
-                apply_segments(&stem, separator, keep, join, append, i)
+            RenameRule::Segments { separator, keep, join, append, cycle, group_size } => {
+                apply_segments(&stem, separator, keep, join, append, cycle, *group_size, i)
             }
         };
 
@@ -182,7 +187,16 @@ fn repad_numbers(stem: &str, width: usize) -> String {
     result
 }
 
-fn apply_segments(stem: &str, separator: &str, keep: &str, join: &str, append: &str, index: usize) -> String {
+fn apply_segments(
+    stem: &str,
+    separator: &str,
+    keep: &str,
+    join: &str,
+    append: &str,
+    cycle: &str,
+    group_size: usize,
+    index: usize,
+) -> String {
     let sep = if separator.is_empty() { "_" } else { separator };
     let segments: Vec<&str> = stem.split(sep).collect();
     let n = segments.len();
@@ -195,14 +209,36 @@ fn apply_segments(stem: &str, separator: &str, keep: &str, join: &str, append: &
         .filter_map(|i| segments.get(i).copied())
         .collect();
 
+    let cycle_items: Vec<&str> = cycle
+        .split(',')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    let g = group_size.max(1);
+    let cycle_value = if !cycle_items.is_empty() {
+        cycle_items[(index / g) % cycle_items.len()].to_string()
+    } else {
+        String::new()
+    };
+
+    // When cycling, counter = how many times this same cycle value has appeared so far.
+    // Otherwise it's the global file index.
+    let counter_value = if !cycle_items.is_empty() {
+        let l = cycle_items.len();
+        (index / (g * l)) * g + (index % g)
+    } else {
+        index
+    };
+
     let mut result = kept.join(join_str);
-    result.push_str(&expand_counter(append, index));
+    result.push_str(&expand_placeholders(append, counter_value, &cycle_value));
     result
 }
 
-// Replace runs of '#' in `s` with a zero-padded counter (1-indexed from `index`).
-// Ex: "_v##" at index=0 -> "_v01"; "_v##" at index=11 -> "_v12".
-fn expand_counter(s: &str, index: usize) -> String {
+// Replace runs of '#' with a zero-padded counter (1-indexed from `counter`)
+// and '@' with the cycle value.
+fn expand_placeholders(s: &str, counter: usize, cycle_value: &str) -> String {
     let mut out = String::with_capacity(s.len() + 4);
     let mut chars = s.chars().peekable();
     while let Some(c) = chars.next() {
@@ -212,7 +248,9 @@ fn expand_counter(s: &str, index: usize) -> String {
                 chars.next();
                 width += 1;
             }
-            out.push_str(&format!("{:0>width$}", index + 1, width = width));
+            out.push_str(&format!("{:0>width$}", counter + 1, width = width));
+        } else if c == '@' {
+            out.push_str(cycle_value);
         } else {
             out.push(c);
         }

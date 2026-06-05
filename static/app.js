@@ -224,6 +224,8 @@ function buildRule() {
                 keep: $('#seg-keep').value,
                 join: $('#seg-join').value,
                 append: $('#seg-append').value,
+                cycle: $('#seg-cycle').value,
+                group_size: Math.max(1, parseInt($('#seg-group').value) || 1),
             };
     }
 }
@@ -262,11 +264,26 @@ function applySegments(stem, rule, index) {
     const indices = parseKeepRange(rule.keep, segments.length);
     const joinStr = rule.join || sep;
     const kept = indices.map(i => segments[i]).filter(s => s !== undefined);
-    return kept.join(joinStr) + expandCounter(rule.append || '', index);
+
+    const cycleItems = (rule.cycle || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    const g = Math.max(1, rule.group_size || 1);
+    const cycleValue = cycleItems.length
+        ? cycleItems[Math.floor(index / g) % cycleItems.length]
+        : '';
+    const counterValue = cycleItems.length
+        ? Math.floor(index / (g * cycleItems.length)) * g + (index % g)
+        : index;
+
+    return kept.join(joinStr) + expandPlaceholders(rule.append || '', counterValue, cycleValue);
 }
 
-function expandCounter(s, index) {
-    return s.replace(/#+/g, run => String(index + 1).padStart(run.length, '0'));
+function expandPlaceholders(s, counter, cycleValue) {
+    return s
+        .replace(/#+/g, run => String(counter + 1).padStart(run.length, '0'))
+        .replace(/@/g, cycleValue);
 }
 
 function computePreviews(filenames, rule) {
