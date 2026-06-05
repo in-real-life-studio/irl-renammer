@@ -270,12 +270,20 @@ function applySegments(stem, rule, index) {
         .map(s => s.trim())
         .filter(Boolean);
     const g = Math.max(1, rule.group_size || 1);
-    const cycleValue = cycleItems.length
-        ? cycleItems[Math.floor(index / g) % cycleItems.length]
-        : '';
-    const counterValue = cycleItems.length
-        ? Math.floor(index / (g * cycleItems.length)) * g + (index % g)
-        : index;
+    const expanded = cycleItems.flatMap(v => Array(g).fill(v));
+
+    let cycleValue = '';
+    let counterValue = index;
+    if (expanded.length > 0) {
+        const L = expanded.length;
+        const pos = index % L;
+        const round = Math.floor(index / L);
+        cycleValue = expanded[pos];
+        let occAtPos = 0;
+        for (let k = 0; k <= pos; k++) if (expanded[k] === cycleValue) occAtPos++;
+        const totalInCycle = expanded.filter(v => v === cycleValue).length;
+        counterValue = round * totalInCycle + occAtPos - 1;
+    }
 
     return kept.join(joinStr) + expandPlaceholders(rule.append || '', counterValue, cycleValue);
 }

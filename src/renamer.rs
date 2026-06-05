@@ -216,19 +216,24 @@ fn apply_segments(
         .collect();
 
     let g = group_size.max(1);
-    let cycle_value = if !cycle_items.is_empty() {
-        cycle_items[(index / g) % cycle_items.len()].to_string()
-    } else {
-        String::new()
-    };
+    // Expand: [FR,EN] with g=2 -> [FR,FR,EN,EN].
+    // Lets users mix uniform groups (group_size) with custom sequences
+    // (e.g. FR,FR,EN,DE,JP for 2 FR variants per round).
+    let expanded: Vec<&str> = cycle_items
+        .iter()
+        .flat_map(|v| std::iter::repeat(*v).take(g))
+        .collect();
 
-    // When cycling, counter = how many times this same cycle value has appeared so far.
-    // Otherwise it's the global file index.
-    let counter_value = if !cycle_items.is_empty() {
-        let l = cycle_items.len();
-        (index / (g * l)) * g + (index % g)
+    let (cycle_value, counter_value) = if expanded.is_empty() {
+        (String::new(), index)
     } else {
-        index
+        let l = expanded.len();
+        let pos = index % l;
+        let round = index / l;
+        let value = expanded[pos];
+        let occ_at_pos = expanded[..=pos].iter().filter(|&&v| v == value).count();
+        let total_in_cycle = expanded.iter().filter(|&&v| v == value).count();
+        (value.to_string(), round * total_in_cycle + occ_at_pos - 1)
     };
 
     let mut result = kept.join(join_str);

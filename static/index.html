@@ -145,8 +145,9 @@
                 <div class="info-box">
                     Decoupe le nom par un separateur et garde uniquement les segments choisis. Ideal pour les fichiers generes (IA, exports) avec une structure <strong>PREFIX_PARAM1_PARAM2_..._timestamp</strong>.<br>
                     Dans le champ <strong>Ajouter</strong> : <strong>#</strong> = compteur auto-incremente (le nombre de <strong>#</strong> = padding), <strong>@</strong> = valeur courante de la liste cyclique.<br>
-                    <strong>Exemple alternance</strong> (groupe=1) : liste <strong>FR,EN,DE,JP</strong>, ajouter <strong>_@_v##</strong> &rarr; <strong>..._FR_v01</strong>, <strong>..._EN_v01</strong>, <strong>..._DE_v01</strong>, <strong>..._JP_v01</strong>, <strong>..._FR_v02</strong>, ...<br>
-                    <strong>Exemple par lots</strong> (groupe=4) : meme liste &rarr; les 4 premiers deviennent <strong>..._FR_v01</strong> a <strong>..._FR_v04</strong>, puis 4 en <strong>EN</strong>, etc.
+                    <strong>Alternance</strong> (groupe=1) : liste <strong>FR,EN,DE,JP</strong>, ajouter <strong>_@_v##</strong> &rarr; <strong>..._FR_v01</strong>, <strong>..._EN_v01</strong>, ..., <strong>..._FR_v02</strong>, ...<br>
+                    <strong>Par lots</strong> (groupe=4) : meme liste &rarr; 4 fichiers en FR (v01-v04), puis 4 en EN, etc.<br>
+                    <strong>Repetitions inegales</strong> : liste <strong>FR,FR,EN,DE,JP</strong>, groupe <strong>1</strong> &rarr; <strong>FR_v01, FR_v02, EN_v01, DE_v01, JP_v01, FR_v03, FR_v04, EN_v02</strong>, ...
                 </div>
                 <div class="field-row">
                     <div class="field">
@@ -229,6 +230,6 @@
         </div>
     </main>
 
-    <script src="app.js?v=14"></script>
+    <script src="app.js?v=15"></script>
 </body>
 </html>
