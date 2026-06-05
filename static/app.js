@@ -217,7 +217,52 @@ function buildRule() {
             return { mode: 'case', case_type: $('#case-type').value };
         case 'repad':
             return { mode: 'repad', padding: parseInt($('#repad-padding').value) || 0 };
+        case 'segments':
+            return {
+                mode: 'segments',
+                separator: $('#seg-separator').value,
+                keep: $('#seg-keep').value,
+                join: $('#seg-join').value,
+                append: $('#seg-append').value,
+            };
     }
+}
+
+function parseKeepRange(spec, total) {
+    const trimmed = (spec || '').trim();
+    if (!trimmed) return [...Array(total).keys()];
+    const out = [];
+    for (const partRaw of trimmed.split(',')) {
+        const part = partRaw.trim();
+        if (!part) continue;
+        const dash = part.indexOf('-');
+        if (dash >= 0) {
+            const a = part.slice(0, dash).trim();
+            const b = part.slice(dash + 1).trim();
+            const start = a === '' ? 1 : parseInt(a, 10);
+            const end = b === '' ? total : parseInt(b, 10);
+            if (isNaN(start) || isNaN(end)) continue;
+            const s = Math.max(0, start - 1);
+            const e = Math.min(total - 1, end - 1);
+            for (let i = s; i <= e; i++) out.push(i);
+        } else {
+            const n = parseInt(part, 10);
+            if (!isNaN(n)) {
+                const i = n - 1;
+                if (i >= 0 && i < total) out.push(i);
+            }
+        }
+    }
+    return out;
+}
+
+function applySegments(stem, rule) {
+    const sep = rule.separator || '_';
+    const segments = stem.split(sep);
+    const indices = parseKeepRange(rule.keep, segments.length);
+    const joinStr = rule.join || sep;
+    const kept = indices.map(i => segments[i]).filter(s => s !== undefined);
+    return kept.join(joinStr) + (rule.append || '');
 }
 
 function computePreviews(filenames, rule) {
@@ -255,6 +300,9 @@ function computePreviews(filenames, rule) {
                 break;
             case 'repad':
                 newStem = repadNumbers(stem, repadWidth);
+                break;
+            case 'segments':
+                newStem = applySegments(stem, rule);
                 break;
             default:
                 newStem = stem;

@@ -35,12 +35,24 @@ pub enum RenameRule {
         #[serde(default = "default_repad_padding")]
         padding: usize,
     },
+    #[serde(rename = "segments")]
+    Segments {
+        #[serde(default = "default_segments_separator")]
+        separator: String,
+        #[serde(default)]
+        keep: String,
+        #[serde(default)]
+        join: String,
+        #[serde(default)]
+        append: String,
+    },
 }
 
 fn default_start() -> usize { 1 }
 fn default_step() -> usize { 1 }
 fn default_padding() -> usize { 3 }
 fn default_repad_padding() -> usize { 0 } // 0 = auto-detect
+fn default_segments_separator() -> String { "_".to_string() }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum NumberPosition {
@@ -117,6 +129,9 @@ pub fn apply_rule(filenames: &[String], rule: &RenameRule) -> Result<Vec<RenameP
             }
             RenameRule::ChangeCase { case_type } => apply_case(&stem, case_type),
             RenameRule::Repad { .. } => repad_numbers(&stem, repad_width),
+            RenameRule::Segments { separator, keep, join, append } => {
+                apply_segments(&stem, separator, keep, join, append)
+            }
         };
 
         let renamed = if ext.is_empty() {
@@ -165,6 +180,55 @@ fn repad_numbers(stem: &str, width: usize) -> String {
     }
     result.push_str(&stem[last_end..]);
     result
+}
+
+fn apply_segments(stem: &str, separator: &str, keep: &str, join: &str, append: &str) -> String {
+    let sep = if separator.is_empty() { "_" } else { separator };
+    let segments: Vec<&str> = stem.split(sep).collect();
+    let n = segments.len();
+
+    let indices = parse_keep_range(keep, n);
+    let join_str = if join.is_empty() { sep } else { join };
+
+    let kept: Vec<&str> = indices
+        .into_iter()
+        .filter_map(|i| segments.get(i).copied())
+        .collect();
+
+    let mut result = kept.join(join_str);
+    result.push_str(append);
+    result
+}
+
+// Parse "1-3", "1,3,5", "2-", "1-2,4" — 1-indexed. Returns 0-indexed positions.
+// Empty or invalid → all segments.
+fn parse_keep_range(spec: &str, total: usize) -> Vec<usize> {
+    let trimmed = spec.trim();
+    if trimmed.is_empty() {
+        return (0..total).collect();
+    }
+
+    let mut out = Vec::new();
+    for part in trimmed.split(',') {
+        let part = part.trim();
+        if part.is_empty() { continue; }
+
+        if let Some((a, b)) = part.split_once('-') {
+            let start = a.trim().parse::<usize>().ok();
+            let end = b.trim().parse::<usize>().ok();
+            let s = start.map(|v| v.saturating_sub(1)).unwrap_or(0);
+            let e = end.map(|v| v.saturating_sub(1)).unwrap_or(total.saturating_sub(1));
+            if s <= e {
+                for i in s..=e {
+                    if i < total { out.push(i); }
+                }
+            }
+        } else if let Ok(n) = part.parse::<usize>() {
+            let i = n.saturating_sub(1);
+            if i < total { out.push(i); }
+        }
+    }
+    out
 }
 
 fn split_name_ext(filename: &str) -> (String, String) {

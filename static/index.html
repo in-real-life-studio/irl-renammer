@@ -41,6 +41,7 @@
                 <button class="tab" data-mode="numbering">Numerotation</button>
                 <button class="tab" data-mode="case">Casse</button>
                 <button class="tab" data-mode="repad">Re-padding</button>
+                <button class="tab" data-mode="segments">Segments</button>
             </div>
 
             <div class="rule-form" id="form-search_replace">
@@ -140,6 +141,33 @@
                 </div>
             </div>
 
+            <div class="rule-form hidden" id="form-segments">
+                <div class="info-box">
+                    Decoupe le nom par un separateur et garde uniquement les segments choisis. Ideal pour les fichiers generes (IA, exports) avec une structure <strong>PREFIX_PARAM1_PARAM2_..._timestamp</strong>.<br>
+                    <strong>Exemple :</strong> separateur <strong>_</strong>, garder <strong>1-3</strong>, ajouter <strong>_v01</strong> &rarr; <strong>TARGET_UBIGI_CDM26_Gemini3_..._12-55-34.png</strong> devient <strong>TARGET_UBIGI_CDM26_v01.png</strong>
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label>Separateur</label>
+                        <input type="text" id="seg-separator" value="_" maxlength="5">
+                    </div>
+                    <div class="field">
+                        <label>Garder (ex: 1-3, 1,3,5, 2-)</label>
+                        <input type="text" id="seg-keep" placeholder="1-3" value="1-3">
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="field">
+                        <label>Jointure (vide = separateur)</label>
+                        <input type="text" id="seg-join" placeholder="_" maxlength="5">
+                    </div>
+                    <div class="field">
+                        <label>Ajouter a la fin</label>
+                        <input type="text" id="seg-append" placeholder="_v01">
+                    </div>
+                </div>
+            </div>
+
             <div class="rule-form hidden" id="form-repad">
                 <div class="info-box">
                     Uniformise le padding des nombres dans les noms de fichiers. Ideal pour les sequences d'images dont la numerotation passe de 4 a 5 chiffres.<br>
@@ -189,6 +217,6 @@
         </div>
     </main>
 
-    <script src="app.js?v=10"></script>
+    <script src="app.js?v=11"></script>
 </body>
 </html>
